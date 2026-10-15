@@ -1,0 +1,6 @@
+{
+  "name": "Allô Dabou Chauffeur",
+  "description": "Application PWA mobile-first pour les chauffeurs et coursiers de Dabou (Côte d'Ivoire) : gestion des courses en temps réel, gains et navigation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

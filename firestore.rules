@@ -1,0 +1,144 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token != null && request.auth.token.role == 'admin') ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // Users collection
+    match /users/{userId} {
+      // Driver or owner can read user profile
+      allow get: if isSignedIn() && (
+        isOwner(userId) || 
+        isAdmin() || 
+        (resource.data.role in ['driver', 'driver_pending'])
+      );
+      
+      allow list: if isAdmin();
+
+      // On registration, role must be client or driver_pending, and cannot self-approve
+      allow create: if isSignedIn() && request.auth.uid == userId && (
+        request.resource.data.role in ['client', 'driver_pending'] &&
+        (!('isApprovedDriver' in request.resource.data) || request.resource.data.isApprovedDriver == false) &&
+        (!('approved' in request.resource.data) || request.resource.data.approved == false)
+      );
+
+      // User cannot modify RBAC fields (role, isApprovedDriver, approved, ratingAverage)
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        (
+          isOwner(userId) && 
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+            'role', 
+            'isApprovedDriver', 
+            'approved', 
+            'ratingAverage', 
+            'ratingCount', 
+            'totalRatingSum'
+          ])
+        )
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    // Admins collection
+    match /admins/{adminId} {
+      allow read: if isSignedIn() && request.auth.uid == adminId;
+      allow write: if false;
+    }
+
+    // Rides collection
+    match /rides/{rideId} {
+      // Clients see their rides, drivers see rides they are assigned to or pending rides
+      allow get: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.userId == request.auth.uid ||
+        resource.data.driverId == request.auth.uid ||
+        resource.data.status == 'pending'
+      );
+
+      allow list: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.userId == request.auth.uid ||
+        resource.data.driverId == request.auth.uid ||
+        resource.data.status == 'pending'
+      );
+
+      // Client creates a pending ride
+      allow create: if isSignedIn() && 
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.status == 'pending';
+
+      // Updates strictly governed by role and state lifecycle
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        
+        // 1. Client cancels before in_progress
+        (
+          resource.data.userId == request.auth.uid &&
+          request.resource.data.status == 'cancelled' &&
+          resource.data.status in ['pending', 'confirmed', 'driver_arriving', 'driver_arrived']
+        ) ||
+
+        // 2. Client rates completed ride
+        (
+          resource.data.userId == request.auth.uid &&
+          resource.data.status == 'completed' &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'ratingComment', 'ratedAt', 'updatedAt'])
+        ) ||
+
+        // 3. Driver accepts pending ride atomically
+        (
+          resource.data.status == 'pending' &&
+          (!('driverId' in resource.data) || resource.data.driverId == null || resource.data.driverId == '') &&
+          request.resource.data.status == 'confirmed' &&
+          request.resource.data.driverId == request.auth.uid
+        ) ||
+
+        // 4. Driver ignores a pending ride (adds self to declinedBy)
+        (
+          resource.data.status == 'pending' &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['declinedBy', 'updatedAt'])
+        ) ||
+
+        // 5. Assigned driver updates ride status along lifecycle
+        (
+          resource.data.driverId == request.auth.uid && (
+            // Status transitions: confirmed -> driver_arriving -> driver_arrived -> in_progress -> completed
+            (request.resource.data.status in ['driver_arriving', 'driver_arrived', 'in_progress', 'completed']) ||
+
+            // Payment receipt update after completion
+            (resource.data.status == 'completed' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paymentStatus', 'paymentMethod', 'updatedAt'])) ||
+
+            // Driver cancellation before in_progress: resets back to pending
+            (
+              resource.data.status in ['confirmed', 'driver_arriving', 'driver_arrived'] &&
+              (request.resource.data.status == 'pending' || request.resource.data.status == 'cancelled')
+            )
+          )
+        )
+      );
+
+      allow delete: if isAdmin();
+    }
+  }
+}

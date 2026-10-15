@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F7A22"/>
+      <stop offset="100%" stop-color="#084212"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFD700"/>
+      <stop offset="100%" stop-color="#FF9900"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  
+  <!-- Background rounded squircle with safe margin -->
+  <rect width="512" height="512" rx="110" fill="url(#bgGrad)"/>
+
+  <!-- Subtle concentric rings -->
+  <circle cx="256" cy="256" r="210" fill="none" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="4"/>
+  <circle cx="256" cy="256" r="170" fill="none" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="3"/>
+
+  <!-- Outer Steering Wheel / Speed circle -->
+  <g filter="url(#shadow)">
+    <!-- Steering wheel outer rim -->
+    <circle cx="256" cy="256" r="140" fill="none" stroke="#FFFFFF" stroke-width="26" stroke-linecap="round"/>
+    
+    <!-- Steering wheel hub -->
+    <circle cx="256" cy="256" r="44" fill="#0D631B" stroke="#FFFFFF" stroke-width="12"/>
+    
+    <!-- Steering wheel spokes -->
+    <path d="M 118 256 L 212 256" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round"/>
+    <path d="M 300 256 L 394 256" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round"/>
+    <path d="M 256 300 L 256 394" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round"/>
+    
+    <!-- Center badge: Dabou Bolt / Star -->
+    <circle cx="256" cy="256" r="22" fill="url(#goldGrad)"/>
+    <path d="M 256 242 L 259 252 L 269 252 L 261 258 L 264 268 L 256 262 L 248 268 L 251 258 L 243 252 L 253 252 Z" fill="#0D631B"/>
+    
+    <!-- Roof Taxi/Chauffeur Indicator Light -->
+    <g transform="translate(0, -28)">
+      <rect x="206" y="80" width="100" height="34" rx="10" fill="url(#goldGrad)" stroke="#FFFFFF" stroke-width="4"/>
+      <text x="256" y="103" text-anchor="middle" font-family="Arial, sans-serif" font-weight="900" font-size="16" fill="#084212" letter-spacing="2">DABOU</text>
+    </g>
+  </g>
+</svg>

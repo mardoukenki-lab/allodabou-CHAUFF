@@ -1,0 +1,88 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Utilisateur Allô Dabou (client ou chauffeur ou admin)",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string", "maxLength": 100 },
+        "email": { "type": "string", "maxLength": 150 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "role": { "type": "string", "enum": ["client", "driver_pending", "driver", "admin"] },
+        "isApprovedDriver": { "type": "boolean" },
+        "approved": { "type": "boolean" },
+        "vehicleNumber": { "type": "string", "maxLength": 50 },
+        "vehicleType": { "type": "string", "enum": ["moto", "voiture"] },
+        "isOnline": { "type": "boolean" },
+        "lastSeenAt": { "type": "string", "format": "date-time" },
+        "photoUrl": { "type": "string", "maxLength": 500 },
+        "fcmToken": { "type": "string", "maxLength": 500 },
+        "fcmTokens": { "type": "array" },
+        "ratingAverage": { "type": "number" },
+        "ratingCount": { "type": "number" },
+        "totalRatingSum": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["displayName", "phone", "role"]
+    },
+    "Ride": {
+      "title": "Ride",
+      "description": "Course ou livraison VTC/Taxi/Coursier à Dabou",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "userName": { "type": "string", "maxLength": 100 },
+        "userPhone": { "type": "string", "maxLength": 30 },
+        "userEmail": { "type": "string", "maxLength": 150 },
+        "pickupAddress": { "type": "string", "maxLength": 300 },
+        "pickupLat": { "type": "number" },
+        "pickupLng": { "type": "number" },
+        "destinationAddress": { "type": "string", "maxLength": 300 },
+        "destinationLat": { "type": "number" },
+        "destinationLng": { "type": "number" },
+        "distanceKm": { "type": "number" },
+        "durationMin": { "type": "number" },
+        "priceFcfa": { "type": "number" },
+        "serviceType": { "type": "string", "enum": ["vtc", "taxi", "delivery", "concierge"] },
+        "vehicleTypeRequested": { "type": "string", "enum": ["moto", "voiture", "any"] },
+        "packageDetails": { "type": "string", "maxLength": 500 },
+        "recipientPhone": { "type": "string", "maxLength": 30 },
+        "conciergeTask": { "type": "string", "maxLength": 500 },
+        "notes": { "type": "string", "maxLength": 500 },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "driver_arriving", "driver_arrived", "in_progress", "completed", "cancelled"] },
+        "driverId": { "type": "string", "maxLength": 128 },
+        "driverName": { "type": "string", "maxLength": 100 },
+        "driverPhone": { "type": "string", "maxLength": 30 },
+        "driverVehiclePlate": { "type": "string", "maxLength": 50 },
+        "driverVehicleType": { "type": "string", "enum": ["moto", "voiture"] },
+        "declinedBy": { "type": "array" },
+        "acceptedAt": { "type": "string", "format": "date-time" },
+        "arrivingAt": { "type": "string", "format": "date-time" },
+        "arrivedAt": { "type": "string", "format": "date-time" },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "cancelledBy": { "type": "string", "maxLength": 128 },
+        "cancelReason": { "type": "string", "maxLength": 300 },
+        "paymentStatus": { "type": "string", "enum": ["unpaid", "paid"] },
+        "paymentMethod": { "type": "string", "enum": ["cash"] },
+        "rating": { "type": "number" },
+        "ratingComment": { "type": "string", "maxLength": 500 },
+        "ratedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "pickupAddress", "destinationAddress", "priceFcfa", "serviceType", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Profils utilisateurs et chauffeurs"
+    },
+    "/rides/{rideId}": {
+      "schema": { "$ref": "#/entities/Ride" },
+      "description": "Courses et livraisons partagées entre clients et chauffeurs"
+    }
+  }
+}

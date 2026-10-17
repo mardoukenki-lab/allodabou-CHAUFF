@@ -20,12 +20,12 @@ export type PaymentMethod = 'cash';
 export interface UserProfile {
   uid: string;
   displayName: string;
-  email: string;
+  email?: string;
   phone: string;
   role: UserRole;
   isApprovedDriver: boolean;
   approved?: boolean;
-  vehicleNumber: string;
+  vehicleNumber?: string;
   vehicleType?: VehicleType;
   isOnline?: boolean;
   lastSeenAt?: any;

@@ -37,12 +37,12 @@ interface AuthContextType {
 }
 
 export interface RegisterParams {
-  email: string;
+  email?: string;
   password: string;
   displayName: string;
   phone: string;
   vehicleType: VehicleType;
-  vehicleNumber: string;
+  vehicleNumber?: string;
   photoUrl?: string;
 }
 
@@ -197,52 +197,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return await setOnlineStatus(!current);
   };
 
-  // Login
-  const login = async (email: string, pass: string): Promise<void> => {
+  // Login (supports either Email or Phone Number)
+  const login = async (identifier: string, pass: string): Promise<void> => {
     setIsLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email.trim(), pass);
+      const trimmed = identifier.trim();
+      let authEmail = trimmed;
+      if (!trimmed.includes('@')) {
+        const cleanDigits = trimmed.replace(/[^0-9]/g, '');
+        authEmail = `${cleanDigits}@driver.allodabou.ci`;
+      }
+      await signInWithEmailAndPassword(auth, authEmail, pass);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Register Driver
+  // Register Driver (email and vehicleNumber are optional)
   const register = async (params: RegisterParams): Promise<void> => {
     setIsLoading(true);
     try {
+      const cleanPhone = params.phone.trim().replace(/[^0-9]/g, '');
+      const providedEmail = params.email ? params.email.trim() : '';
+      const authEmail = providedEmail !== '' ? providedEmail : `${cleanPhone}@driver.allodabou.ci`;
+
       const userCredential = await createUserWithEmailAndPassword(
         auth, 
-        params.email.trim(), 
+        authEmail, 
         params.password
       );
       const user = userCredential.user;
 
-      await updateProfile(user, {
-        displayName: params.displayName.trim(),
-        photoURL: params.photoUrl || undefined
-      });
+      try {
+        await updateProfile(user, {
+          displayName: params.displayName.trim(),
+          photoURL: params.photoUrl || undefined
+        });
+      } catch (profileErr) {
+        console.warn('Could not update auth profile:', profileErr);
+      }
 
       const userDocRef = doc(db, 'users', user.uid);
-      await setDoc(userDocRef, {
-        displayName: params.displayName.trim(),
-        email: params.email.trim(),
-        phone: params.phone.trim(),
-        role: 'driver_pending',
-        isApprovedDriver: false,
-        approved: false,
-        vehicleType: params.vehicleType,
-        vehicleNumber: params.vehicleNumber.trim().toUpperCase(),
-        photoUrl: params.photoUrl || null,
-        isOnline: false,
-        ratingAverage: 5.0,
-        ratingCount: 0,
-        totalRatingSum: 0,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'users');
+      try {
+        await setDoc(userDocRef, {
+          displayName: params.displayName.trim(),
+          email: providedEmail,
+          phone: params.phone.trim(),
+          role: 'driver_pending',
+          isApprovedDriver: false,
+          approved: false,
+          vehicleType: params.vehicleType,
+          vehicleNumber: params.vehicleNumber ? params.vehicleNumber.trim().toUpperCase() : '',
+          photoUrl: params.photoUrl || null,
+          isOnline: false,
+          ratingAverage: 5.0,
+          ratingCount: 0,
+          totalRatingSum: 0,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      } catch (firestoreError) {
+        handleFirestoreError(firestoreError, OperationType.CREATE, `users/${user.uid}`);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -268,8 +284,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Password reset
-  const resetPassword = async (email: string): Promise<void> => {
-    await sendPasswordResetEmail(auth, email.trim());
+  const resetPassword = async (identifier: string): Promise<void> => {
+    const trimmed = identifier.trim();
+    if (!trimmed.includes('@')) {
+      throw new Error("Pour réinitialiser par email, veuillez saisir votre adresse email ou contacter le dispatch (01 01 68 25 35).");
+    }
+    await sendPasswordResetEmail(auth, trimmed);
   };
 
   // Update profile

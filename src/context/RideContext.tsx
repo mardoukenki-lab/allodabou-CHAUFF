@@ -18,6 +18,7 @@ import { db, handleFirestoreError, OperationType } from '../services/firebase';
 import { Ride, RideStatus, ServiceType, EarningsSummary } from '../types';
 import { useAuth } from './AuthContext';
 import { playNewRideAlert } from '../services/audio';
+import { showNewRideNotification } from '../services/fcm';
 
 interface RideContextType {
   pendingRides: Ride[];
@@ -34,6 +35,7 @@ interface RideContextType {
   advanceRideStatus: (rideId: string) => Promise<void>;
   cancelRide: (rideId: string, reason: string) => Promise<void>;
   markPaymentReceived: (rideId: string) => Promise<void>;
+  simulateNewRide: () => Promise<void>;
   serviceFilter: string;
   setServiceFilter: (service: string) => void;
 }
@@ -125,6 +127,10 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (initialLoadCompletedRef.current && !knownPendingIdsRef.current.has(rideId)) {
           hasNewRide = true;
+          // Trigger push/system notification if driver is online
+          if (userProfile?.isOnline) {
+            showNewRideNotification(ride.pickupAddress, ride.destinationAddress, ride.priceFcfa);
+          }
         }
       });
 
@@ -336,7 +342,7 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
           driverId: currentUser.uid,
           driverName: userProfile.displayName,
           driverPhone: userProfile.phone,
-          driverVehiclePlate: userProfile.vehicleNumber,
+          driverVehiclePlate: userProfile.vehicleNumber || '',
           driverVehicleType: userProfile.vehicleType || 'voiture',
           acceptedAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
@@ -454,6 +460,59 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // 9. Simulate a new ride submitted in Dabou to test real-time FCM & audio alert
+  const simulateNewRide = async (): Promise<void> => {
+    try {
+      const dabouPickups = [
+        'Grand Marché de Dabou',
+        'Hôpital Général de Dabou',
+        'Carrefour TP Dabou',
+        'Gare Routière Dabou - Armebé',
+        'Quartier Débrimou'
+      ];
+      const dabouDestinations = [
+        'Mairie de Dabou',
+        'Collège Méthodiste de Dabou',
+        'Quartier Kpass',
+        'Cité Policière Dabou',
+        'Carrefour Agneby'
+      ];
+
+      const pickup = dabouPickups[Math.floor(Math.random() * dabouPickups.length)];
+      const destination = dabouDestinations[Math.floor(Math.random() * dabouDestinations.length)];
+      const prices = [1000, 1500, 2000, 2500];
+      const price = prices[Math.floor(Math.random() * prices.length)];
+      const distance = Number((1.5 + Math.random() * 3.5).toFixed(1));
+      const duration = Math.round(distance * 3 + 2);
+
+      const ridesRef = collection(db, 'rides');
+      await addDoc(ridesRef, {
+        userId: 'client_demo_' + Date.now().toString(36),
+        userName: 'Client Allô Dabou',
+        userPhone: '0707070707',
+        userEmail: 'client@allodabou.ci',
+        pickupAddress: pickup,
+        pickupLat: 5.3256,
+        pickupLng: -4.3768,
+        destinationAddress: destination,
+        destinationLat: 5.3341,
+        destinationLng: -4.3812,
+        distanceKm: distance,
+        durationMin: duration,
+        priceFcfa: price,
+        serviceType: userProfile?.vehicleType === 'moto' ? 'delivery' : 'vtc',
+        vehicleTypeRequested: userProfile?.vehicleType || 'any',
+        status: 'pending',
+        driverId: null,
+        declinedBy: [],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'rides (simulation)');
+    }
+  };
+
   return (
     <RideContext.Provider
       value={{
@@ -467,6 +526,7 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
         advanceRideStatus,
         cancelRide,
         markPaymentReceived,
+        simulateNewRide,
         serviceFilter,
         setServiceFilter,
       }}

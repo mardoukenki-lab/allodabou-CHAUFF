@@ -8,22 +8,31 @@ import {
   Sun, 
   HelpCircle,
   PhoneCall,
-  Share2
+  Share2,
+  Bell
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import { getNotificationPermissionStatus } from '../services/fcm';
 
 interface HeaderProps {
   darkMode: boolean;
   setDarkMode: (val: boolean) => void;
   onOpenHelp: () => void;
+  onOpenFCMConfig?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ darkMode, setDarkMode, onOpenHelp }) => {
+export const Header: React.FC<HeaderProps> = ({ 
+  darkMode, 
+  setDarkMode, 
+  onOpenHelp,
+  onOpenFCMConfig
+}) => {
   const { userProfile, isOnline, toggleOnlineStatus } = useAuth();
   const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
   const [showIOSModal, setShowIOSModal] = useState(false);
   const [isToggling, setIsToggling] = useState(false);
+  const notifPermission = getNotificationPermissionStatus();
 
   const handleToggle = async () => {
     setIsToggling(true);
@@ -57,7 +66,7 @@ export const Header: React.FC<HeaderProps> = ({ darkMode, setDarkMode, onOpenHel
               </span>
             </div>
             <p className="text-[11px] text-emerald-100/90 font-medium leading-tight">
-              {userProfile?.displayName ? userProfile.displayName.split(' ')[0] : 'Conducteur'} • {userProfile?.vehicleNumber || 'Dabou'}
+              {userProfile?.displayName ? userProfile.displayName.split(' ')[0] : 'Conducteur'} • {userProfile?.vehicleNumber || (userProfile?.vehicleType === 'moto' ? 'Moto' : 'Voiture')}
             </p>
           </div>
         </div>
@@ -83,6 +92,22 @@ export const Header: React.FC<HeaderProps> = ({ darkMode, setDarkMode, onOpenHel
               className="p-2 rounded-xl bg-white/15 text-white hover:bg-white/25 active:scale-95 transition"
             >
               <Download className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* Push Notifications Configuration (FCM) */}
+          {onOpenFCMConfig && (
+            <button
+              onClick={onOpenFCMConfig}
+              title="Configuration Notifications Push (FCM)"
+              className="relative p-2 rounded-xl bg-white/10 hover:bg-white/20 text-emerald-100 active:scale-95 transition"
+            >
+              <Bell className="w-5 h-5" />
+              {notifPermission === 'granted' ? (
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-[#0D631B]" />
+              ) : (
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 animate-pulse ring-2 ring-[#0D631B]" />
+              )}
             </button>
           )}
 

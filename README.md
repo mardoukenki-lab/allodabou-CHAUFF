@@ -46,3 +46,24 @@ La configuration du projet Firebase (`firebase-applet-config.json`) est automati
 - `paymentMethod`: `'cash'`
 - `declinedBy`: Tableau des UIDs ayant décliné ou ignoré la course
 - `rating`, `ratingComment`, `ratedAt`
+
+## Notifications Push Firebase Cloud Messaging (FCM)
+
+L'application intègre une architecture complète de notifications push pour alerter les chauffeurs à Dabou dès qu'un client soumet une course :
+
+1. **Enregistrement des jetons Chauffeur** :
+   - Au démarrage ou à l'activation, le Service Worker `/firebase-messaging-sw.js` s'enregistre.
+   - Le jeton FCM est généré via la clé VAPID (`VITE_FIREBASE_VAPID_KEY`) et stocké dans le document Firestore du chauffeur (`users/{uid}.fcmTokens` et `fcmToken`).
+
+2. **Réception en arrière-plan (PWA & Mobile)** :
+   - `/firebase-messaging-sw.js` écoute les messages push `onBackgroundMessage`.
+   - Affiche une notification avec vibration intense `[350, 150, 350, 150, 600]`, le prix en FCFA, les adresses de prise en charge et de destination, et un bouton d'action pour ouvrir l'application.
+
+3. **Réception au premier plan** :
+   - L'alerte sonore haute puissance (Web Audio API à trois tonalités harmoniques) et la vibration se déclenchent immédiatement.
+   - Un toast d'alerte apparaît en haut de l'écran.
+
+4. **Déclencheur automatique Backend (Firebase Cloud Functions)** :
+   - Fichier modèle prêt à déployer dans `src/services/fcmBackendGuide.ts` ou via l'onglet dédié dans l'application.
+   - Dès qu'un document est créé dans `rides` avec `status: 'pending'`, la fonction sélectionne les chauffeurs en ligne (`isOnline: true`, `role: 'driver'`, `isApprovedDriver: true`) avec un véhicule compatible et envoie un push multicast instantané.
+

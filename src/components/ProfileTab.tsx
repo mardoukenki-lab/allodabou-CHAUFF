@@ -15,17 +15,28 @@ import {
   Check, 
   Camera, 
   AlertCircle,
-  ExternalLink
+  ExternalLink,
+  Bell,
+  Volume2,
+  Copy,
+  Sparkles
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { VehicleType } from '../types';
+import { 
+  getNotificationPermissionStatus, 
+  requestPushNotificationPermission, 
+  triggerTestPushNotification, 
+  NotificationPermissionState 
+} from '../services/fcm';
 
 interface ProfileTabProps {
   onOpenHelp: () => void;
+  onOpenFCMConfig?: () => void;
 }
 
-export const ProfileTab: React.FC<ProfileTabProps> = ({ onOpenHelp }) => {
-  const { userProfile, updateDriverProfile, logout } = useAuth();
+export const ProfileTab: React.FC<ProfileTabProps> = ({ onOpenHelp, onOpenFCMConfig }) => {
+  const { currentUser, userProfile, updateDriverProfile, logout } = useAuth();
   
   const [isEditing, setIsEditing] = useState(false);
   const [displayName, setDisplayName] = useState(userProfile?.displayName || '');
@@ -35,8 +46,47 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ onOpenHelp }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // FCM Push Notifications State
+  const [notifPermission, setNotifPermission] = useState<NotificationPermissionState>(getNotificationPermissionStatus());
+  const [isActivatingNotif, setIsActivatingNotif] = useState(false);
+  const [isTestingNotif, setIsTestingNotif] = useState(false);
+  const [copiedToken, setCopiedToken] = useState(false);
+
   // FAQ Accordion State
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  const handleActivateNotifications = async () => {
+    if (!currentUser) return;
+    setIsActivatingNotif(true);
+    try {
+      const res = await requestPushNotificationPermission(currentUser.uid);
+      setNotifPermission(getNotificationPermissionStatus());
+      if (res.error) {
+        alert(res.error);
+      } else {
+        alert("Notifications push activées avec succès !");
+      }
+    } finally {
+      setIsActivatingNotif(false);
+    }
+  };
+
+  const handleTestNotification = async () => {
+    setIsTestingNotif(true);
+    try {
+      await triggerTestPushNotification();
+    } finally {
+      setIsTestingNotif(false);
+    }
+  };
+
+  const handleCopyToken = () => {
+    if (userProfile?.fcmToken) {
+      navigator.clipboard.writeText(userProfile.fcmToken);
+      setCopiedToken(true);
+      setTimeout(() => setCopiedToken(false), 2000);
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +95,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ onOpenHelp }) => {
       await updateDriverProfile({
         displayName: displayName.trim(),
         phone: phone.trim(),
-        vehicleNumber: vehicleNumber.trim().toUpperCase(),
+        vehicleNumber: vehicleNumber.trim() ? vehicleNumber.trim().toUpperCase() : '',
         vehicleType,
       });
       setSaveSuccess(true);
@@ -127,7 +177,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ onOpenHelp }) => {
                 </span>
               )}
               <span className="text-[10px] font-bold uppercase bg-neutral-100 dark:bg-neutral-700 px-2 py-0.5 rounded text-neutral-600 dark:text-neutral-300">
-                {userProfile?.vehicleNumber || 'Plaque'}
+                {userProfile?.vehicleNumber || 'Sans plaque'}
               </span>
             </div>
           </div>
@@ -181,13 +231,12 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ onOpenHelp }) => {
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-neutral-500 uppercase">Immatriculation</label>
+                <label className="text-[11px] font-bold text-neutral-500 uppercase">Immatriculation (Optionnel)</label>
                 <input
                   type="text"
                   value={vehicleNumber}
                   onChange={(e) => setVehicleNumber(e.target.value)}
-                  placeholder="Ex: 1234-HJ-01"
-                  required
+                  placeholder="Ex: 1234-HJ-01 (Facultatif)"
                   className="w-full mt-1 p-2.5 text-xs font-semibold rounded-xl border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white uppercase"
                 />
               </div>
@@ -217,6 +266,105 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ onOpenHelp }) => {
               </button>
             </div>
           </form>
+        )}
+      </div>
+
+      {/* FCM Push Notifications Configuration Card */}
+      <div className="bg-white dark:bg-neutral-800 p-5 rounded-3xl border border-neutral-200 dark:border-neutral-700 shadow-sm space-y-3.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950 text-[#0D631B] dark:text-emerald-400">
+              <Bell className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-xs font-black uppercase tracking-wider text-neutral-900 dark:text-white">
+                Notifications Push (FCM)
+              </h3>
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-medium">
+                Alertes instantanées des courses à Dabou
+              </p>
+            </div>
+          </div>
+
+          <div>
+            {notifPermission === 'granted' ? (
+              <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-emerald-100 text-[#0D631B] dark:bg-emerald-950 dark:text-emerald-300">
+                Actives
+              </span>
+            ) : notifPermission === 'denied' ? (
+              <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                Bloquées
+              </span>
+            ) : (
+              <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                À autoriser
+              </span>
+            )}
+          </div>
+        </div>
+
+        <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
+          Permet de faire sonner et vibrer votre téléphone dès qu'un client ou commerçant de Dabou soumet une course, même si votre écran est éteint.
+        </p>
+
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          {notifPermission !== 'granted' ? (
+            <button
+              onClick={handleActivateNotifications}
+              disabled={isActivatingNotif}
+              className="col-span-2 py-3 px-3 rounded-2xl bg-[#0D631B] hover:bg-[#0a4d15] text-white font-black text-xs uppercase tracking-wider active:scale-95 transition flex items-center justify-center gap-1.5 shadow-sm"
+            >
+              <Bell className="w-4 h-4 text-amber-300" />
+              <span>{isActivatingNotif ? 'Activation...' : 'Activer les notifications push'}</span>
+            </button>
+          ) : (
+            <button
+              onClick={handleActivateNotifications}
+              disabled={isActivatingNotif}
+              className="py-2.5 px-3 rounded-xl bg-neutral-100 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-200 font-bold text-xs hover:bg-neutral-200 active:scale-95 transition flex items-center justify-center gap-1.5"
+            >
+              <Bell className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Actualiser le jeton</span>
+            </button>
+          )}
+
+          <button
+            onClick={handleTestNotification}
+            disabled={isTestingNotif}
+            className={`${
+              notifPermission !== 'granted' ? 'col-span-2' : ''
+            } py-2.5 px-3 rounded-xl bg-neutral-100 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-200 font-bold text-xs hover:bg-neutral-200 active:scale-95 transition flex items-center justify-center gap-1.5`}
+          >
+            <Volume2 className="w-3.5 h-3.5 text-amber-500" />
+            <span>{isTestingNotif ? 'Test...' : 'Tester son & notification'}</span>
+          </button>
+        </div>
+
+        {/* Registered Token preview */}
+        {userProfile?.fcmToken && (
+          <div className="pt-2 border-t border-neutral-100 dark:border-neutral-700/60 flex items-center justify-between text-[11px] text-neutral-500">
+            <span className="truncate max-w-[200px]">
+              Jeton : <code className="text-[10px] bg-neutral-100 dark:bg-neutral-900 px-1.5 py-0.5 rounded font-mono">{userProfile.fcmToken.slice(0, 16)}...</code>
+            </span>
+            <button
+              onClick={handleCopyToken}
+              className="text-[#0D631B] dark:text-emerald-400 font-bold flex items-center gap-1 hover:underline"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              <span>{copiedToken ? 'Copié !' : 'Copier'}</span>
+            </button>
+          </div>
+        )}
+
+        {/* Advanced FCM Config & Cloud Function Guide */}
+        {onOpenFCMConfig && (
+          <button
+            onClick={onOpenFCMConfig}
+            className="w-full mt-1 py-2 px-3 rounded-xl border border-neutral-200 dark:border-neutral-700 text-xs font-semibold text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-750 transition flex items-center justify-center gap-1.5"
+          >
+            <Bell className="w-3.5 h-3.5 text-[#0D631B] dark:text-emerald-400" />
+            <span>Paramètres avancés FCM & Code Cloud Function</span>
+          </button>
         )}
       </div>
 

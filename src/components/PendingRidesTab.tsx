@@ -11,18 +11,24 @@ import {
   Package, 
   Car, 
   Bike,
-  Navigation
+  Navigation,
+  Bell
 } from 'lucide-react';
 import { useRides } from '../context/RideContext';
 import { useAuth } from '../context/AuthContext';
 import { testAlertSound } from '../services/audio';
+import { getNotificationPermissionStatus } from '../services/fcm';
 import { ServiceType } from '../types';
 
 interface PendingRidesTabProps {
   onGoToActiveRide: () => void;
+  onOpenFCMConfig?: () => void;
 }
 
-export const PendingRidesTab: React.FC<PendingRidesTabProps> = ({ onGoToActiveRide }) => {
+export const PendingRidesTab: React.FC<PendingRidesTabProps> = ({ 
+  onGoToActiveRide,
+  onOpenFCMConfig 
+}) => {
   const { 
     pendingRides, 
     activeRide, 
@@ -105,6 +111,31 @@ export const PendingRidesTab: React.FC<PendingRidesTabProps> = ({ onGoToActiveRi
             className="w-full py-2.5 px-4 bg-[#0D631B] hover:bg-[#0a4d15] text-white font-bold text-xs rounded-xl shadow-sm transition active:scale-95"
           >
             Passer en ligne maintenant
+          </button>
+        </div>
+      )}
+
+      {/* Push Notification prompt if online but not yet enabled */}
+      {isOnline && getNotificationPermissionStatus() !== 'granted' && onOpenFCMConfig && (
+        <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 p-3 rounded-2xl flex items-center justify-between gap-2 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-emerald-100 dark:bg-emerald-900 rounded-xl text-[#0D631B] dark:text-emerald-300">
+              <Bell className="w-4 h-4 animate-bounce" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-neutral-900 dark:text-white leading-tight">
+                Alertes sonores & notifications push
+              </p>
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                Soyez averti dès qu'un client soumet une course à Dabou
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onOpenFCMConfig}
+            className="px-3 py-1.5 rounded-xl bg-[#0D631B] hover:bg-[#0a4d15] text-white text-xs font-bold whitespace-nowrap active:scale-95 transition"
+          >
+            Activer
           </button>
         </div>
       )}

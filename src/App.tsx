@@ -10,19 +10,24 @@ import { ProfileTab } from './components/ProfileTab';
 import { AuthModal } from './components/AuthModal';
 import { PendingApprovalView } from './components/PendingApprovalView';
 import { OfflineBanner } from './components/OfflineBanner';
-import { setupForegroundMessageListener } from './services/fcm';
-import { Bell, X, PhoneCall, MessageSquare } from 'lucide-react';
+import { FCMConfigModal } from './components/FCMConfigModal';
+import { setupForegroundMessageListener, requestPushNotificationPermission } from './services/fcm';
+import { Bell, X, PhoneCall, MessageSquare, AlertCircle } from 'lucide-react';
 
 const MainApp: React.FC = () => {
   const { currentUser, userProfile, isLoading } = useAuth();
-  const { activeRide } = useRides();
+  const { activeRide, simulateNewRide } = useRides();
   
   const [currentTab, setCurrentTab] = useState<TabType>('demandes');
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     return localStorage.getItem('allo_dabou_driver_theme') === 'dark';
   });
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showFCMConfigModal, setShowFCMConfigModal] = useState(false);
   const [pushToast, setPushToast] = useState<{ title: string; body: string } | null>(null);
+  const [showNotifBanner, setShowNotifBanner] = useState<boolean>(() => {
+    return typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default';
+  });
 
   // Sync dark mode class
   useEffect(() => {
@@ -81,6 +86,7 @@ const MainApp: React.FC = () => {
         darkMode={darkMode}
         setDarkMode={setDarkMode}
         onOpenHelp={() => setShowHelpModal(true)}
+        onOpenFCMConfig={() => setShowFCMConfigModal(true)}
       />
 
       {/* Push Notification In-App Toast */}
@@ -104,19 +110,32 @@ const MainApp: React.FC = () => {
       {/* Main Tab Screen */}
       <main className="flex-1 overflow-y-auto">
         {currentTab === 'demandes' && (
-          <PendingRidesTab onGoToActiveRide={() => setCurrentTab('course')} />
+          <PendingRidesTab 
+            onGoToActiveRide={() => setCurrentTab('course')} 
+            onOpenFCMConfig={() => setShowFCMConfigModal(true)}
+          />
         )}
         {currentTab === 'course' && (
           <ActiveRideTab onGoToDemandes={() => setCurrentTab('demandes')} />
         )}
         {currentTab === 'gains' && <EarningsTab />}
         {currentTab === 'profil' && (
-          <ProfileTab onOpenHelp={() => setShowHelpModal(true)} />
+          <ProfileTab 
+            onOpenHelp={() => setShowHelpModal(true)} 
+            onOpenFCMConfig={() => setShowFCMConfigModal(true)}
+          />
         )}
       </main>
 
       {/* Bottom Navigation */}
       <Navigation currentTab={currentTab} setCurrentTab={setCurrentTab} />
+
+      {/* FCM Push Notification Configuration Modal */}
+      <FCMConfigModal
+        isOpen={showFCMConfigModal}
+        onClose={() => setShowFCMConfigModal(false)}
+        onSimulateNewRide={simulateNewRide}
+      />
 
       {/* Help & Dispatch Modal */}
       {showHelpModal && (

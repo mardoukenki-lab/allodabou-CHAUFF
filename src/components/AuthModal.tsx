@@ -42,8 +42,13 @@ export const AuthModal: React.FC = () => {
     try {
       await login(email, password);
     } catch (err: any) {
-      if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-        setErrorMessage('Email ou mot de passe incorrect.');
+      if (
+        err.code === 'auth/invalid-credential' || 
+        err.code === 'auth/user-not-found' || 
+        err.code === 'auth/wrong-password' ||
+        err.message?.includes('invalid-credential')
+      ) {
+        setErrorMessage('Numéro/Email ou mot de passe incorrect.');
       } else {
         setErrorMessage(err.message || 'Erreur lors de la connexion.');
       }
@@ -64,18 +69,20 @@ export const AuthModal: React.FC = () => {
     setLoading(true);
     try {
       const params: RegisterParams = {
-        email,
+        email: email.trim() || undefined,
         password,
-        displayName,
-        phone,
+        displayName: displayName.trim(),
+        phone: phone.trim(),
         vehicleType,
-        vehicleNumber,
+        vehicleNumber: vehicleNumber.trim() || undefined,
         photoUrl: photoUrl.trim() || undefined
       };
       await register(params);
     } catch (err: any) {
-      if (err.code === 'auth/email-already-in-use') {
-        setErrorMessage('Cette adresse email est déjà utilisée par un autre compte.');
+      if (err.code === 'auth/email-already-in-use' || err.message?.includes('email-already-in-use')) {
+        setErrorMessage('Ce compte (téléphone ou email) est déjà enregistré. Rendez-vous sur l\'onglet Connexion.');
+      } else if (err.code === 'auth/weak-password') {
+        setErrorMessage('Le mot de passe doit comporter au moins 6 caractères.');
       } else {
         setErrorMessage(err.message || "Erreur lors de l'inscription.");
       }
@@ -142,9 +149,24 @@ export const AuthModal: React.FC = () => {
 
         {/* Feedback messages */}
         {errorMessage && (
-          <div className="bg-rose-50 dark:bg-rose-950/60 border border-rose-300 text-rose-700 dark:text-rose-200 p-3 rounded-xl text-xs font-bold flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{errorMessage}</span>
+          <div className="bg-rose-50 dark:bg-rose-950/60 border border-rose-300 text-rose-700 dark:text-rose-200 p-3 rounded-xl text-xs font-bold flex flex-col gap-1.5">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+            {errorMessage.includes('déjà enregistré') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('login');
+                  if (phone) setEmail(phone);
+                  setErrorMessage(null);
+                }}
+                className="text-left text-[11px] font-black text-[#0D631B] dark:text-emerald-400 underline underline-offset-2 ml-6"
+              >
+                Passer à l'écran de connexion &rarr;
+              </button>
+            )}
           </div>
         )}
 
@@ -159,17 +181,17 @@ export const AuthModal: React.FC = () => {
         {mode === 'login' && (
           <form onSubmit={handleLogin} className="space-y-3.5">
             <div>
-              <label className="text-[11px] font-bold text-neutral-500 uppercase">Adresse Email</label>
+              <label className="text-[11px] font-bold text-neutral-500 uppercase">Téléphone ou Email</label>
               <div className="relative mt-1">
                 <input
-                  type="email"
+                  type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="chauffeur@allodabou.ci"
+                  placeholder="0708091011 ou chauffeur@allodabou.ci"
                   required
                   className="w-full p-3 text-xs font-semibold rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white pl-9"
                 />
-                <Mail className="w-4 h-4 text-neutral-400 absolute left-3 top-3.5" />
+                <Phone className="w-4 h-4 text-neutral-400 absolute left-3 top-3.5" />
               </div>
             </div>
 
@@ -243,13 +265,12 @@ export const AuthModal: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-neutral-500 uppercase">Immatriculation</label>
+                <label className="text-[11px] font-bold text-neutral-500 uppercase">Immatriculation (Optionnel)</label>
                 <input
                   type="text"
                   value={vehicleNumber}
                   onChange={(e) => setVehicleNumber(e.target.value)}
-                  placeholder="Ex: 5678-KL-01"
-                  required
+                  placeholder="Ex: 5678-KL-01 (Facultatif)"
                   className="w-full mt-1 p-2.5 text-xs font-semibold rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white uppercase"
                 />
               </div>
@@ -287,13 +308,12 @@ export const AuthModal: React.FC = () => {
             </div>
 
             <div>
-              <label className="text-[11px] font-bold text-neutral-500 uppercase">Adresse Email</label>
+              <label className="text-[11px] font-bold text-neutral-500 uppercase">Adresse Email (Optionnel)</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="koffi@gmail.com"
-                required
+                placeholder="Ex: koffi@gmail.com (Facultatif)"
                 className="w-full mt-1 p-2.5 text-xs font-semibold rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white"
               />
             </div>

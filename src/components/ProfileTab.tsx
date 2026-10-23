@@ -29,14 +29,23 @@ import {
   triggerTestPushNotification, 
   NotificationPermissionState 
 } from '../services/fcm';
+import { DISPATCH_PHONE, DISPATCH_PHONE_DISPLAY, DISPATCH_WHATSAPP_BASE } from '../constants/dispatch';
 
 interface ProfileTabProps {
-  onOpenHelp: () => void;
+  onOpenHelp?: () => void;
   onOpenFCMConfig?: () => void;
+  onOpenFCMModal?: () => void;
+  darkMode?: boolean;
+  setDarkMode?: (dark: boolean) => void;
 }
 
-export const ProfileTab: React.FC<ProfileTabProps> = ({ onOpenHelp, onOpenFCMConfig }) => {
+export const ProfileTab: React.FC<ProfileTabProps> = ({ 
+  onOpenHelp, 
+  onOpenFCMConfig,
+  onOpenFCMModal 
+}) => {
   const { currentUser, userProfile, updateDriverProfile, logout } = useAuth();
+  const openFCM = onOpenFCMConfig || onOpenFCMModal;
   
   const [isEditing, setIsEditing] = useState(false);
   const [displayName, setDisplayName] = useState(userProfile?.displayName || '');
@@ -51,6 +60,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ onOpenHelp, onOpenFCMCon
   const [isActivatingNotif, setIsActivatingNotif] = useState(false);
   const [isTestingNotif, setIsTestingNotif] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
+  const [notifMessage, setNotifMessage] = useState<string | null>(null);
 
   // FAQ Accordion State
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -58,13 +68,15 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ onOpenHelp, onOpenFCMCon
   const handleActivateNotifications = async () => {
     if (!currentUser) return;
     setIsActivatingNotif(true);
+    setNotifMessage(null);
     try {
       const res = await requestPushNotificationPermission(currentUser.uid);
       setNotifPermission(getNotificationPermissionStatus());
       if (res.error) {
-        alert(res.error);
+        setNotifMessage(res.error);
       } else {
-        alert("Notifications push activées avec succès !");
+        setNotifMessage("Notifications push activées avec succès !");
+        setTimeout(() => setNotifMessage(null), 4000);
       }
     } finally {
       setIsActivatingNotif(false);
@@ -108,9 +120,10 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ onOpenHelp, onOpenFCMCon
     }
   };
 
-  const dispatchPhone = "0101682535";
-  const dispatchWhatsAppUrl = `https://wa.me/2250101682535?text=${encodeURIComponent(
-    `Bonjour Dispatch Allô Dabou, je suis le chauffeur ${userProfile?.displayName || ''} (Véhicule: ${userProfile?.vehicleNumber || ''}). J'ai besoin d'une assistance.`
+  const dispatchPhone = DISPATCH_PHONE;
+  const dispatchPhoneDisplay = DISPATCH_PHONE_DISPLAY;
+  const dispatchWhatsAppUrl = `${DISPATCH_WHATSAPP_BASE}?text=${encodeURIComponent(
+    `Bonjour Dispatch Allô Dabou, je suis le chauffeur ${userProfile?.displayName || ''} (Code: ${userProfile?.driverCode || 'N/A'}, Véhicule: ${userProfile?.vehicleNumber || ''}). J'ai besoin d'une assistance.`
   )}`;
 
   const faqItems = [
@@ -128,7 +141,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ onOpenHelp, onOpenFCMCon
     },
     {
       q: "Comment contacter le dispatch en cas d'urgence ?",
-      a: "Le dispatch Allô Dabou est joignable 7j/7 au 01 01 68 25 35 par appel ou WhatsApp direct."
+      a: `Le dispatch Allô Dabou est joignable 7j/7 au ${DISPATCH_PHONE_DISPLAY} par appel ou WhatsApp direct.`
     }
   ];
 
@@ -164,16 +177,21 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ onOpenHelp, onOpenFCMCon
               {userProfile?.phone || 'Numéro non renseigné'}
             </p>
 
-            <div className="flex items-center gap-2 mt-1.5">
+            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
               {userProfile?.isApprovedDriver ? (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-[#0D631B] dark:bg-emerald-950 dark:text-emerald-300">
                   <ShieldCheck className="w-3 h-3" />
-                  <span>Chauffeur vérifié</span>
+                  <span>Vérifié</span>
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
                   <AlertCircle className="w-3 h-3" />
-                  <span>Dossier en attente</span>
+                  <span>En attente</span>
+                </span>
+              )}
+              {userProfile?.driverCode && (
+                <span className="text-[10px] font-mono font-bold uppercase bg-emerald-50 dark:bg-emerald-950 text-[#0D631B] dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 px-2 py-0.5 rounded">
+                  {userProfile.driverCode}
                 </span>
               )}
               <span className="text-[10px] font-bold uppercase bg-neutral-100 dark:bg-neutral-700 px-2 py-0.5 rounded text-neutral-600 dark:text-neutral-300">
@@ -307,6 +325,12 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ onOpenHelp, onOpenFCMCon
           Permet de faire sonner et vibrer votre téléphone dès qu'un client ou commerçant de Dabou soumet une course, même si votre écran est éteint.
         </p>
 
+        {notifMessage && (
+          <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-xs font-semibold text-emerald-800 dark:text-emerald-200">
+            {notifMessage}
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-2 pt-1">
           {notifPermission !== 'granted' ? (
             <button
@@ -357,9 +381,9 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ onOpenHelp, onOpenFCMCon
         )}
 
         {/* Advanced FCM Config & Cloud Function Guide */}
-        {onOpenFCMConfig && (
+        {openFCM && (
           <button
-            onClick={onOpenFCMConfig}
+            onClick={openFCM}
             className="w-full mt-1 py-2 px-3 rounded-xl border border-neutral-200 dark:border-neutral-700 text-xs font-semibold text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-750 transition flex items-center justify-center gap-1.5"
           >
             <Bell className="w-3.5 h-3.5 text-[#0D631B] dark:text-emerald-400" />

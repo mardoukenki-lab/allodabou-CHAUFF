@@ -17,6 +17,16 @@ export type PaymentStatus = 'unpaid' | 'paid';
 
 export type PaymentMethod = 'cash';
 
+export type ApplicationStatus = 'pending' | 'approved' | 'rejected' | 'suspended';
+
+export interface DriverChecklist {
+  licenseVerified?: boolean;
+  insuranceVerified?: boolean;
+  technicalInspectionVerified?: boolean;
+  identityVerified?: boolean;
+  [key: string]: boolean | undefined;
+}
+
 export interface UserProfile {
   uid: string;
   displayName: string;
@@ -25,6 +35,19 @@ export interface UserProfile {
   role: UserRole;
   isApprovedDriver: boolean;
   approved?: boolean;
+  applicationStatus?: ApplicationStatus;
+  driverCode?: string;
+  hasLicense?: boolean;
+  rejectionReason?: string | null;
+  suspensionReason?: string | null;
+  checklist?: DriverChecklist;
+  adminNote?: string;
+  cardType?: string;
+  cardNumber?: string;
+  cardValidFrom?: string;
+  cardValidUntil?: string;
+  reviewedBy?: string;
+  reviewedAt?: any;
   vehicleNumber?: string;
   vehicleType?: VehicleType;
   isOnline?: boolean;

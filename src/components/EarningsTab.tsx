@@ -178,9 +178,15 @@ export const EarningsTab: React.FC = () => {
                     {ride.priceFcfa?.toLocaleString('fr-FR')} FCFA
                   </span>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-md">
-                      Espèces reçu
-                    </span>
+                    {ride.paymentStatus === 'paid' ? (
+                      <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-md">
+                        Espèces reçu
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950 px-2 py-0.5 rounded-md">
+                        En attente d'encaissement
+                      </span>
+                    )}
                   </div>
                 </div>
 

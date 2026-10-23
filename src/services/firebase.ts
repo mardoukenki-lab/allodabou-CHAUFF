@@ -13,19 +13,8 @@ import firebaseConfig from '../../firebase-applet-config.json';
 // Initialize Firebase App
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore with persistent offline caching (IndexedDB)
-export let db: ReturnType<typeof getFirestore>;
-
-try {
-  db = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-      tabManager: persistentMultipleTabManager()
-    })
-  }, firebaseConfig.firestoreDatabaseId);
-} catch (e) {
-  // Fallback to standard getFirestore if persistent cache already configured
-  db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-}
+// Initialize Firestore for the specified database
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 
 export const auth = getAuth(app);
 

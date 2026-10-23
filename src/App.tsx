@@ -9,13 +9,19 @@ import { EarningsTab } from './components/EarningsTab';
 import { ProfileTab } from './components/ProfileTab';
 import { AuthModal } from './components/AuthModal';
 import { PendingApprovalView } from './components/PendingApprovalView';
+import { RejectedDriverView } from './components/RejectedDriverView';
+import { SuspendedDriverView } from './components/SuspendedDriverView';
 import { OfflineBanner } from './components/OfflineBanner';
 import { FCMConfigModal } from './components/FCMConfigModal';
-import { setupForegroundMessageListener, requestPushNotificationPermission } from './services/fcm';
-import { Bell, X, PhoneCall, MessageSquare, AlertCircle } from 'lucide-react';
+import { setupForegroundMessageListener } from './services/fcm';
+import { Bell, X, PhoneCall, MessageSquare } from 'lucide-react';
+import { 
+  DISPATCH_PHONE, 
+  DISPATCH_PHONE_DISPLAY, 
+  DISPATCH_WHATSAPP_BASE 
+} from './constants/dispatch';
 
 const MainApp: React.FC = () => {
-  const { currentUser, userProfile, isLoading } = useAuth();
   const { activeRide, simulateNewRide } = useRides();
   
   const [currentTab, setCurrentTab] = useState<TabType>('demandes');
@@ -25,9 +31,6 @@ const MainApp: React.FC = () => {
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showFCMConfigModal, setShowFCMConfigModal] = useState(false);
   const [pushToast, setPushToast] = useState<{ title: string; body: string } | null>(null);
-  const [showNotifBanner, setShowNotifBanner] = useState<boolean>(() => {
-    return typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default';
-  });
 
   // Sync dark mode class
   useEffect(() => {
@@ -54,27 +57,6 @@ const MainApp: React.FC = () => {
       setCurrentTab('course');
     }
   }, [activeRide?.id]);
-
-  // Loading Screen
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#0D631B] flex flex-col items-center justify-center p-4 text-white">
-        <div className="w-16 h-16 border-4 border-white/20 border-t-white rounded-full animate-spin" />
-        <h2 className="mt-4 text-lg font-black tracking-wide">Allô Dabou Chauffeur</h2>
-        <p className="text-xs text-emerald-200 mt-1">Connexion au réseau de Dabou...</p>
-      </div>
-    );
-  }
-
-  // Not authenticated
-  if (!currentUser) {
-    return <AuthModal />;
-  }
-
-  // Driver in pending approval
-  if (userProfile && !userProfile.isApprovedDriver && userProfile.role === 'driver_pending') {
-    return <PendingApprovalView />;
-  }
 
   return (
     <div className="min-h-screen bg-neutral-100 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 flex flex-col">
@@ -121,32 +103,37 @@ const MainApp: React.FC = () => {
         {currentTab === 'gains' && <EarningsTab />}
         {currentTab === 'profil' && (
           <ProfileTab 
-            onOpenHelp={() => setShowHelpModal(true)} 
-            onOpenFCMConfig={() => setShowFCMConfigModal(true)}
+            darkMode={darkMode} 
+            setDarkMode={setDarkMode} 
+            onOpenFCMModal={() => setShowFCMConfigModal(true)} 
           />
         )}
       </main>
 
-      {/* Bottom Navigation */}
+      {/* Bottom Floating Navigation */}
       <Navigation currentTab={currentTab} setCurrentTab={setCurrentTab} />
 
       {/* FCM Push Notification Configuration Modal */}
       <FCMConfigModal
         isOpen={showFCMConfigModal}
         onClose={() => setShowFCMConfigModal(false)}
-        onSimulateNewRide={simulateNewRide}
+        // H4: Condition simulation to DEV mode only
+        onSimulateNewRide={import.meta.env.DEV ? simulateNewRide : undefined}
       />
 
-      {/* Help & Dispatch Modal */}
+      {/* Support & Dispatch Help Modal */}
       {showHelpModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-neutral-800 p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="bg-white dark:bg-neutral-800 rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl border border-neutral-200 dark:border-neutral-700">
             <div className="flex items-center justify-between">
-              <h3 className="font-black text-base text-[#0D631B] dark:text-emerald-400">
-                Dispatch Allô Dabou
+              <h3 className="font-black text-sm text-neutral-900 dark:text-white uppercase tracking-wider">
+                Support Dispatch Dabou
               </h3>
-              <button onClick={() => setShowHelpModal(false)}>
-                <X className="w-5 h-5 text-neutral-400" />
+              <button
+                onClick={() => setShowHelpModal(false)}
+                className="p-1 rounded-full text-neutral-400 hover:text-neutral-600"
+              >
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -156,17 +143,17 @@ const MainApp: React.FC = () => {
 
             <div className="space-y-2 pt-1">
               <a
-                href="https://wa.me/2250101682535?text=Bonjour%20Dispatch%20All%C3%B4%20Dabou,%20j'ai%20besoin%20d'aide."
+                href={`${DISPATCH_WHATSAPP_BASE}?text=Bonjour%20Dispatch%20All%C3%B4%20Dabou,%20j'ai%20besoin%20d'aide.`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full py-3 px-4 rounded-xl bg-[#0D631B] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md active:scale-95 transition"
               >
                 <MessageSquare className="w-4 h-4 text-amber-300" />
-                <span>WhatsApp : 01 01 68 25 35</span>
+                <span>WhatsApp : {DISPATCH_PHONE_DISPLAY}</span>
               </a>
 
               <a
-                href="tel:0101682535"
+                href={`tel:${DISPATCH_PHONE}`}
                 className="w-full py-3 px-4 rounded-xl bg-neutral-100 dark:bg-neutral-700 text-neutral-800 dark:text-white font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition"
               >
                 <PhoneCall className="w-4 h-4 text-emerald-600" />
@@ -187,12 +174,53 @@ const MainApp: React.FC = () => {
   );
 };
 
+// Root App guards: Mount RideProvider ONLY for approved drivers (K2)
+const RootApp: React.FC = () => {
+  const { currentUser, userProfile, isLoading } = useAuth();
+
+  // Loading Screen
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#0D631B] flex flex-col items-center justify-center p-4 text-white">
+        <div className="w-16 h-16 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+        <h2 className="mt-4 text-lg font-black tracking-wide">Allô Dabou Chauffeur</h2>
+        <p className="text-xs text-emerald-200 mt-1">Connexion au réseau de Dabou...</p>
+      </div>
+    );
+  }
+
+  // Not authenticated
+  if (!currentUser) {
+    return <AuthModal />;
+  }
+
+  // Driver Rejected
+  if (userProfile?.applicationStatus === 'rejected') {
+    return <RejectedDriverView rejectionReason={userProfile.rejectionReason} />;
+  }
+
+  // Driver Suspended
+  if (userProfile?.applicationStatus === 'suspended') {
+    return <SuspendedDriverView suspensionReason={userProfile.suspensionReason} />;
+  }
+
+  // Driver in pending approval
+  if (!userProfile?.isApprovedDriver) {
+    return <PendingApprovalView />;
+  }
+
+  // Approved Driver -> Mount RideProvider and MainApp
+  return (
+    <RideProvider>
+      <MainApp />
+    </RideProvider>
+  );
+};
+
 export default function App() {
   return (
     <AuthProvider>
-      <RideProvider>
-        <MainApp />
-      </RideProvider>
+      <RootApp />
     </AuthProvider>
   );
 }

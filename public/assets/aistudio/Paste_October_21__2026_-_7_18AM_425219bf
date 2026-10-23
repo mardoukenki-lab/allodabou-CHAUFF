@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rapport d’audit – Allô Dabou Chauffeur</title>
+<style>
+:root{--bg:#f8faf8;--card:#fff;--tx:#14201a;--mu:#5b6b62;--bd:#dfe7e1;--g:#0d631b;--c:#b42318;--h:#c2570c;--m:#a16207;--l:#475569;--code:#0f1a14;--codetx:#d7f5dd}
+@media(prefers-color-scheme:dark){:root{--bg:#0e1511;--card:#16201a;--tx:#e6efe9;--mu:#9bb0a3;--bd:#27352c;--g:#4ade80;--c:#f87171;--h:#fb923c;--m:#facc15;--l:#94a3b8}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:920px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:26px;margin:0 0 4px}h2{font-size:20px;margin:40px 0 12px;border-bottom:2px solid var(--g);padding-bottom:6px}h3{font-size:16px;margin:0}
+.mu{color:var(--mu)}.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:16px;margin:12px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}.kpi{text-align:center;padding:12px}.kpi b{font-size:28px;display:block}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;color:#fff;margin-right:8px;vertical-align:middle}
+.C{background:var(--c)}.H{background:var(--h)}.M{background:var(--m)}.L{background:var(--l)}
+.f{border-left:5px solid var(--bd)}.f.C{border-left-color:var(--c)}.f.H{border-left-color:var(--h)}.f.M{border-left-color:var(--m)}.f.L{border-left-color:var(--l)}
+.ev{font-size:13px;color:var(--mu);margin:6px 0}.fix{background:rgba(13,99,27,.08);border-radius:8px;padding:10px 12px;margin-top:8px}
+code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px}p code,li code,td code{background:rgba(127,127,127,.15);padding:1px 5px;border-radius:4px}
+pre{background:var(--code);color:var(--codetx);padding:12px;border-radius:8px;overflow-x:auto;margin:8px 0}
+.ok{color:var(--g);font-weight:600}
+ul{padding-left:20px;margin:6px 0}li{margin:3px 0}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{border-bottom:1px solid var(--bd);padding:8px;text-align:left;vertical-align:top}
+.bar{height:12px;background:var(--bd);border-radius:99px;overflow:hidden}.bar i{display:block;height:100%;width:0;background:var(--g);transition:width .3s}
+label.ck{display:flex;gap:10px;align-items:flex-start;padding:6px 0;cursor:pointer}label.ck input{margin-top:5px;accent-color:var(--g)}
+.wrap{overflow-x:auto}
+</style>
+</head>
+<body>
+<main>
+<h1>Rapport d’audit – Allô Dabou Chauffeur</h1>
+<p class="mu">Revue statique du code source (archive de ~45 fichiers) · 21/10/2026 · PWA React + Firebase (Auth, Firestore, FCM) · à lire avec le rapport « Allô Dabou Admin »</p>
+
+<div class="card">
+<h3>Périmètre et limites (à lire)</h3>
+<p>Ce rapport repose uniquement sur la <b>lecture du code</b> : <code>firestore.rules</code>, <code>security_spec.md</code>, <code>AuthContext</code>, <code>RideContext</code>, <code>fcm.ts</code>, service worker, configuration Vite. Je n’ai <b>pas</b> exécuté le build, <code>npm audit</code> ni l’émulateur de règles, et je n’ai pas accès à votre console Firebase. Chaque constat est marqué <span class="ok">Vérifié dans le code</span> ou <b>À confirmer en console</b>. Je ne peux pas confirmer quelles règles sont réellement déployées.</p>
+</div>
+
+<div class="grid">
+<div class="card kpi"><b style="color:var(--c)">5</b>Critiques</div>
+<div class="card kpi"><b style="color:var(--h)">6</b>Élevés</div>
+<div class="card kpi"><b style="color:var(--m)">4</b>Moyens</div>
+<div class="card kpi"><b style="color:var(--l)">3</b>Faibles</div>
+</div>
+
+<div class="card">
+<h3>Ce qui est solide</h3>
+<ul>
+<li>Acceptation d’une course dans un <code>runTransaction</code> (statut <code>pending</code> + <code>driverId</code> vide vérifiés avant l’écriture) : pas de double acceptation côté client.</li>
+<li>Garde « impossible de passer hors ligne avec une course active » et masquage des courses déjà refusées (<code>declinedBy</code>) ou incompatibles avec le véhicule.</li>
+<li>Connexion par e-mail <b>ou</b> numéro ivoirien, adaptée au terrain ; heartbeat toutes les 60 s ; cache hors-ligne Firestore.</li>
+<li>Le <code>security_spec.md</code> (« Dirty Dozen ») est une bonne base de tests : il reste à la rendre vraie (voir K3, K4).</li>
+</ul>
+</div>
+
+<h2>1. Constats critiques</h2>
+
+<div class="card f C">
+<h3><span class="tag C">K1</span>Deux jeux de règles incompatibles pour la même base de données</h3>
+<div class="ev"><span class="ok">Vérifié</span> · <code>firebase-applet-config.json</code> identique dans les deux archives (même projet, même base, seule différence : un retour à la ligne) ; les deux <code>firestore.rules</code> divergent</div>
+<p>Les règles sont appliquées à la base entière : la dernière publication écrase l’autre. Les règles de l’app Chauffeur ne contiennent <b>aucune</b> règle pour <code>adminLogs</code>, <code>driverCodes</code>, <code>settings</code> et refusent toute écriture sur <code>admins</code> : publiées, elles cassent l’app Admin et la réservation des codes <code>GNG-</code>. Inversement, les règles de l’app Admin lisent <code>clientId</code> pour les courses alors que le code des applications écrit <code>userId</code> (README et <code>RideContext</code>) : publiées, les clients ne retrouvent plus leurs courses. <b>À confirmer en console</b> : version actuellement déployée.</p>
+<div class="fix"><b>Correctif</b> : un seul fichier <code>firestore.rules</code>, dans un dépôt ou un dossier partagé, déployé depuis un seul endroit (CI). Les deux apps reprennent ce fichier. Proposition de fusion en §3. <b>Ce point corrige aussi le rapport Admin</b> : sa section sur <code>rides</code> doit utiliser <code>userId</code>.</div>
+</div>
+
+<div class="card f C">
+<h3><span class="tag C">K2</span>N’importe quel utilisateur connecté peut accepter une course</h3>
+<div class="ev"><span class="ok">Vérifié</span> · règle n°3 de <code>rides</code> (aucun test d’approbation) ; <code>RideProvider</code> enveloppe toute l’app, y compris les comptes en attente</div>
+<p>Un chauffeur en attente, refusé ou <b>suspendu</b>, voire un client, peut écrire <code>status: 'confirmed'</code> et son <code>driverId</code> en appelant l’API directement. L’écran <code>PendingApprovalView</code> n’est qu’un filtre d’interface. Il peut aussi passer <code>isOnline: true</code> (non protégé). La suspension décidée dans l’app Admin n’a donc aucun effet sur les courses.</p>
+<div class="fix"><b>Correctif</b> : exiger <code>isApprovedDriver()</code> (lecture de <code>users/{uid}.isApprovedDriver</code>) dans les règles d’acceptation, de refus et de progression ; interdire <code>isOnline == true</code> si non approuvé ; ne monter <code>RideProvider</code> que pour un chauffeur approuvé.</div>
+</div>
+
+<div class="card f C">
+<h3><span class="tag C">K3</span>Les courses « pending » exposent téléphone et e-mail des clients à tout compte connecté</h3>
+<div class="ev"><span class="ok">Vérifié</span> · règles <code>get</code>/<code>list</code> : <code>resource.data.status == 'pending'</code> sans condition de rôle ; <code>security_spec.md</code> annonce « chauffeurs approuvés uniquement »</div>
+<p>Chaque course en attente contient <code>userPhone</code>, <code>userEmail</code>, adresses et coordonnées. Même constat pour <code>users</code> : tout connecté lit n’importe quel profil dont le rôle est <code>driver</code> ou <code>driver_pending</code>. La spécification et le code ne correspondent pas.</p>
+<div class="fix"><b>Correctif</b> : lecture des courses pending réservée à <code>isApprovedDriver()</code> ; ne pas publier <code>userEmail</code> dans la course (inutile au chauffeur) et ne révéler <code>userPhone</code> qu’après acceptation (champ copié dans une sous-collection lisible par le chauffeur assigné) ; <code>users</code> : <code>get</code> limité au propriétaire et aux admins.</div>
+</div>
+
+<div class="card f C">
+<h3><span class="tag C">K4</span>Mises à jour de courses et de profils non validées (prix, états, champs admin)</h3>
+<div class="ev"><span class="ok">Vérifié</span> · règle n°5 : seul <code>request.resource.data.status</code> est testé ; création : seuls <code>userId</code> et <code>status</code> ; <code>users</code> : liste de champs interdits trop courte</div>
+<ul>
+<li>Un chauffeur assigné peut modifier <code>priceFcfa</code> en même temps que le statut, ou sauter de <code>confirmed</code> à <code>completed</code> (cas n°5 et n°7 du « Dirty Dozen » non appliqués).</li>
+<li>Un client crée une course avec le prix et le <code>driverId</code> de son choix ; aucune limite de taille (cas n°6).</li>
+<li>Un chauffeur peut écrire dans son propre profil <code>applicationStatus</code>, <code>cardType</code>, <code>cardValidUntil</code>, <code>checklist</code>, <code>adminNote</code>, <code>driverCode</code> : ces champs ne figurent pas dans la liste interdite de ces règles (celles de l’app Admin les protègent davantage).</li>
+</ul>
+<div class="fix"><b>Correctif</b> : champs immuables après création, table de transitions autorisées, prix borné et idéalement calculé côté serveur, liste interdite complète pour <code>users</code>. Voir §3 ; exécuter ensuite chacun des 12 cas du <code>security_spec.md</code> comme test automatisé.</div>
+</div>
+
+<div class="card f C">
+<h3><span class="tag C">K5</span>Le « patch chauffeur » du back-office n’est pas appliqué</h3>
+<div class="ev"><span class="ok">Vérifié</span> · <code>AuthContext.register</code> : aucun <code>driverCode</code>, <code>hasLicense</code>, <code>applicationStatus</code>, <code>checklist</code> ni écriture dans <code>driverCodes</code> ; <code>App.tsx</code> : un seul écran d’attente</div>
+<p>Conséquences : les candidatures n’ont pas de code <code>GNG-XXXXXX</code> réservé (l’app Admin en invente un de repli à l’approbation, non enregistré dans <code>driverCodes</code>, donc non vérifiable) ; le chauffeur refusé ou suspendu voit indéfiniment « Dossier en cours de validation », sans motif ; la case « permis » n’est jamais renseignée.</p>
+<div class="fix"><b>Correctif</b> : appliquer <code>PATCH_CHAUFFEUR.md</code> de l’archive Admin : champs d’inscription, <code>writeBatch</code> <code>driverCodes</code> + <code>users</code> (génération avec <code>crypto.getRandomValues</code>), écrans « Refusé » (avec <code>rejectionReason</code>) et « Suspendu » (avec <code>suspensionReason</code>), case « j’ai un permis » dans <code>AuthModal</code>.</div>
+</div>
+
+<h2>2. Constats élevés, moyens et faibles</h2>
+
+<div class="card f H"><h3><span class="tag H">H1</span>Inscription : échec Firestore avalé, compte « fantôme »</h3>
+<div class="ev"><span class="ok">Vérifié</span> · <code>AuthContext.register</code> : <code>catch (firestoreError) { console.error(…) }</code> sans relance</div>
+<p>Si l’écriture de <code>users/{uid}</code> échoue (réseau coupé, règle), le compte Auth existe mais aucun profil n’est créé ; l’app affiche pourtant un profil par défaut « en attente » et l’admin ne reçoit jamais la candidature.</p>
+<div class="fix"><b>Correctif</b> : propager l’erreur, afficher « inscription incomplète, réessayez », et recréer le profil manquant à la connexion suivante (<code>onSnapshot</code> sans document → <code>setDoc</code> réel, pas seulement un état local).</div></div>
+
+<div class="card f H"><h3><span class="tag H">H2</span>Identité par numéro de téléphone non vérifié</h3>
+<div class="ev"><span class="ok">Vérifié</span> · e-mail synthétique <code>&lt;numéro&gt;@driver.allodabou.ci</code>, mot de passe 6 caractères min., aucune vérification par SMS</div>
+<p>Quiconque connaît un numéro peut créer le compte avant son propriétaire (squat), puis le chauffeur légitime ne peut plus s’inscrire. Pas de réinitialisation du mot de passe sans e-mail réel : renvoi vers le dispatch. L’inscription tente aussi une connexion automatique si le compte existe, et le message d’erreur confirme qu’un numéro est déjà enregistré.</p>
+<div class="fix"><b>Correctif</b> : vérification par code SMS (Firebase Phone Auth) ou, à défaut, validation du numéro par le dispatch avant approbation ; mot de passe 8 caractères min. ; message d’erreur neutre.</div></div>
+
+<div class="card f H"><h3><span class="tag H">H3</span>Annulation d’une course « in_progress » refusée par les règles</h3>
+<div class="ev"><span class="ok">Vérifié</span> · <code>RideContext.cancelRide</code> écrit <code>status: 'cancelled'</code> depuis <code>in_progress</code> ; règle n°5 n’autorise <code>cancelled</code> que depuis <code>confirmed/driver_arriving/driver_arrived</code></div>
+<p>L’action échoue avec <code>permission-denied</code> (si ces règles sont celles déployées) ; <code>handleFirestoreError</code> relance l’exception à l’appelant, dont le traitement dans l’interface n’est pas garanti.</p>
+<div class="fix"><b>Correctif</b> : ajouter la transition <code>in_progress → cancelled</code> avec <code>cancelledBy == 'driver'</code> et motif obligatoire (voir §3) ; afficher un message d’erreur dans <code>ActiveRideTab</code>.</div></div>
+
+<div class="card f H"><h3><span class="tag H">H4</span>Fonction de simulation livrée en production</h3>
+<div class="ev"><span class="ok">Vérifié</span> · <code>RideContext.simulateNewRide</code> exposée par <code>FCMConfigModal</code> à tout chauffeur</div>
+<p>Elle crée une vraie course <code>pending</code> (<code>userId: 'client_demo_…'</code>, prix aléatoires). Avec les règles de l’app Chauffeur elle échoue (<code>userId</code> ≠ uid) ; avec les règles de l’app Admin (création libre) elle réussirait, polluerait la collection et, une fois la Cloud Function déployée, déclencherait de vraies notifications à tous les chauffeurs en ligne.</p>
+<div class="fix"><b>Correctif</b> : conditionner le bouton et la fonction à <code>import.meta.env.DEV</code>, ou les retirer.</div></div>
+
+<div class="card f H"><h3><span class="tag H">H5</span>Notifications de nouvelles courses : backend non déployé</h3>
+<div class="ev"><span class="ok">Vérifié</span> · pas de dossier <code>functions/</code> ; le modèle est une chaîne de caractères dans <code>fcmBackendGuide.ts</code> ; il se contente de journaliser les jetons invalides sans les supprimer</div>
+<p>Sans fonction, un chauffeur app fermée ne reçoit rien : seule l’alerte sonore à l’écran marche. Le modèle cible les chauffeurs avec <code>isOnline == true</code> ; ce champ reste vrai si l’app plante (le heartbeat s’arrête mais rien ne repasse hors ligne). Non testé ici ; <b>à confirmer</b> : une fonction peut exister dans un autre dépôt.</p>
+<div class="fix"><b>Correctif</b> : vrai dossier <code>functions/</code> ; filtrer sur <code>lastSeenAt</code> récent (ex. &lt; 3 min) ; supprimer réellement les jetons en échec ; envoyer le même module pour les notifications de l’app Admin.</div></div>
+
+<div class="card f H"><h3><span class="tag H">H6</span>Service workers en conflit et clé VAPID absente</h3>
+<div class="ev"><span class="ok">Vérifié</span> · <code>vite.config.ts</code> (VitePWA, scope <code>/</code>) et <code>fcm.ts</code> l.70 (<code>register('/firebase-messaging-sw.js', {scope:'/'})</code>) ; <code>.env.example</code> : <code>VITE_FIREBASE_VAPID_KEY=""</code> ; SW chargé en Firebase 10.12.0 vs <code>firebase ^13</code></div>
+<p>Même problème que dans l’app Admin : un navigateur n’admet qu’un service worker par portée (principe général, non testé sur votre build). Sans clé VAPID, <code>getToken</code> échoue et le README la présente pourtant comme « optionnelle ». La permission de notification est demandée automatiquement à la connexion, sans geste de l’utilisateur : à tester sur iPhone (PWA installée), où ce type de demande est généralement exigé sur action explicite (<b>à confirmer</b>).</p>
+<div class="fix"><b>Correctif</b> : portée dédiée <code>/firebase-cloud-messaging-push-scope</code> ou <code>injectManifest</code> pour fusionner les deux workers ; clé VAPID renseignée (la même que l’app Admin, c’est le même projet) ; bouton « Activer les alertes » déclenchant la demande.</div></div>
+
+<div class="card f M"><h3><span class="tag M">M1</span>Gains calculés côté client, avec valeurs par défaut incohérentes</h3>
+<div class="ev"><span class="ok">Vérifié</span> · <code>RideContext</code> : <code>priceFcfa || 1000</code> (courses en attente), <code>|| 1500</code> (course active), <code>|| 0</code> (terminées) ; <code>paymentStatus || 'paid'</code> par défaut pour les terminées (l. 254) ; <code>EarningsTab</code> ne filtre pas sur <code>paymentStatus</code></div>
+<div class="fix"><b>Correctif</b> : un prix manquant doit bloquer l’affichage, pas inventer 1000 FCFA ; décider si les gains incluent les courses non encaissées ; agréger côté serveur si les montants servent à une commission.</div></div>
+
+<div class="card f M"><h3><span class="tag M">M2</span>Aucune photo ni pièce justificative collectée</h3>
+<div class="ev"><span class="ok">Vérifié</span> · <code>RegisterParams.photoUrl</code> existe, mais aucun champ photo dans <code>AuthModal</code> ; pas de règles Storage dans l’archive</div>
+<p>L’app Admin affiche une photo et une checklist (permis, assurance, visite technique…) cochée à la main, sans copie numérisée.</p>
+<div class="fix"><b>Correctif</b> : Firebase Storage avec règles (propriétaire en écriture, admin en lecture, taille et type limités) ; téléversement photo + pièces dans l’inscription ; liens consultables dans la fiche Admin.</div></div>
+
+<div class="card f M"><h3><span class="tag M">M3</span>Spécification, README et code se contredisent</h3>
+<div class="ev"><span class="ok">Vérifié</span></div>
+<ul>
+<li><code>security_spec.md</code> décrit des protections absentes des règles (K3, K4).</li>
+<li>README : <code>GEMINI_API_KEY</code> « injectée si besoin » ; <code>@google/genai</code>, <code>express</code>, <code>dotenv</code> déclarés dans <code>package.json</code> mais importés nulle part dans <code>src/</code> (recherche) → à retirer.</li>
+<li>Collection <code>users</code> du README sans <code>driverCode</code>, <code>applicationStatus</code> ni <code>hasLicense</code> (K5).</li>
+</ul></div>
+
+<div class="card f M"><h3><span class="tag M">M4</span>Qualité et exploitation</h3>
+<div class="ev"><span class="ok">Vérifié</span></div>
+<ul>
+<li>Nom de paquet <code>react-example</code> ; <code>tsconfig.json</code> sans <code>"strict": true</code> ; 23 <code>any</code> et 23 <code>console.*</code> dans <code>src/</code>.</li>
+<li>Pas de <code>firebase.json</code>, d’index versionnés, de tests ni de CI.</li>
+</ul></div>
+
+<div class="card f L"><h3><span class="tag L">L1–L3</span>Points mineurs</h3>
+<ul>
+<li><b>L1</b> Clé API Firebase publique par conception : restreindre les domaines/API dans Google Cloud et activer App Check <b>(à confirmer en console)</b>.</li>
+<li><b>L2</b> Cache IndexedDB persistant : à vider à la déconnexion sur un téléphone partagé.</li>
+<li><b>L3</b> Numéro du dispatch (<code>0101682535</code>) codé en dur dans plusieurs fichiers → constante unique.</li>
+</ul></div>
+
+<h2>3. Règles Firestore unifiées (courses et profils)</h2>
+<p class="mu">À fusionner avec les blocs <code>admins</code>, <code>adminLogs</code>, <code>driverCodes</code>, <code>settings</code>, <code>publicDrivers</code> et les helpers <code>isSuperAdmin / isAdmin / isFullAdmin</code> du rapport Admin (§3). Champ client = <code>userId</code>. Non exécutées ici : à valider avec <code>@firebase/rules-unit-testing</code> (les 12 cas du <code>security_spec.md</code> + ceux ci-dessous).</p>
+<div class="wrap"><pre><code>function isSignedIn() { return request.auth != null; }
+function isApprovedDriver() {
+  return isSignedIn()
+    &amp;&amp; get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isApprovedDriver == true;
+}
+function rideLocked() {   // champs jamais modifiables après création
+  return !request.resource.data.diff(resource.data).affectedKeys()
+    .hasAny(['userId','priceFcfa','distanceKm','durationMin','pickupAddress','destinationAddress',
+             'pickupLat','pickupLng','destinationLat','destinationLng','serviceType','createdAt']);
+}
+function nextOk(a, b) {
+  return (a=='confirmed' &amp;&amp; b=='driver_arriving') || (a=='driver_arriving' &amp;&amp; b=='driver_arrived')
+      || (a=='driver_arrived' &amp;&amp; b=='in_progress') || (a=='in_progress' &amp;&amp; b=='completed');
+}
+
+match /users/{userId} {
+  allow get: if isSignedIn() &amp;&amp; (request.auth.uid == userId || isAdmin());
+  allow update: if isFullAdmin() || (request.auth.uid == userId
+    &amp;&amp; !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+         'role','isApprovedDriver','approved','ratingAverage','ratingCount','totalRatingSum',
+         'applicationStatus','rejectionReason','suspensionReason','reviewedBy','reviewedAt',
+         'adminNote','checklist','driverCode','hasLicense','cardType','cardNumber',
+         'cardValidFrom','cardValidUntil'])
+    &amp;&amp; (request.resource.data.get('isOnline', false) == false || resource.data.get('isApprovedDriver', false) == true));
+  // create / list / delete : voir rapport Admin §3
+}
+
+match /rides/{rideId} {
+  allow get, list: if isSignedIn() &amp;&amp; (isAdmin()
+    || resource.data.userId == request.auth.uid
+    || resource.data.driverId == request.auth.uid
+    || (resource.data.status == 'pending' &amp;&amp; isApprovedDriver()));
+
+  allow create: if isSignedIn() &amp;&amp; request.resource.data.userId == request.auth.uid
+    &amp;&amp; request.resource.data.status == 'pending'
+    &amp;&amp; request.resource.data.get('driverId', null) == null
+    &amp;&amp; request.resource.data.priceFcfa is number
+    &amp;&amp; request.resource.data.priceFcfa &gt; 0 &amp;&amp; request.resource.data.priceFcfa &lt;= 100000
+    &amp;&amp; request.resource.data.pickupAddress.size() &lt;= 200;
+
+  allow update: if isAdmin()
+    // client : annulation avant démarrage
+    || (resource.data.userId == request.auth.uid &amp;&amp; rideLocked()
+        &amp;&amp; request.resource.data.status == 'cancelled'
+        &amp;&amp; resource.data.status in ['pending','confirmed','driver_arriving','driver_arrived'])
+    // client : notation
+    || (resource.data.userId == request.auth.uid &amp;&amp; resource.data.status == 'completed'
+        &amp;&amp; request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['rating','ratingComment','ratedAt','updatedAt']))
+    // chauffeur approuvé : accepter
+    || (isApprovedDriver() &amp;&amp; rideLocked() &amp;&amp; resource.data.status == 'pending'
+        &amp;&amp; resource.data.get('driverId', null) in [null, '']
+        &amp;&amp; request.resource.data.status == 'confirmed'
+        &amp;&amp; request.resource.data.driverId == request.auth.uid)
+    // chauffeur approuvé : ignorer
+    || (isApprovedDriver() &amp;&amp; resource.data.status == 'pending'
+        &amp;&amp; request.resource.data.diff(resource.data).affectedKeys().hasOnly(['declinedBy','updatedAt'])
+        &amp;&amp; request.auth.uid in request.resource.data.declinedBy)
+    // chauffeur assigné : progression, annulation, encaissement
+    || (resource.data.driverId == request.auth.uid &amp;&amp; (
+          (rideLocked() &amp;&amp; nextOk(resource.data.status, request.resource.data.status))
+       || (rideLocked() &amp;&amp; resource.data.status == 'in_progress' &amp;&amp; request.resource.data.status == 'cancelled'
+           &amp;&amp; request.resource.data.cancelledBy == 'driver')
+       || (rideLocked() &amp;&amp; resource.data.status in ['confirmed','driver_arriving','driver_arrived']
+           &amp;&amp; request.resource.data.status == 'pending' &amp;&amp; request.resource.data.driverId == null)
+       || (resource.data.status == 'completed'
+           &amp;&amp; request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['paymentStatus','paymentMethod','updatedAt']))));
+  allow delete: if isAdmin();
+}</code></pre></div>
+<p class="mu">Limite connue : la règle « chauffeur assigné » ne contraint pas encore les champs <code>driver*</code> lors du retour à <code>pending</code> ; à resserrer avec un test dédié. Le prix reste fixé par le client à la création : seule une Cloud Function de tarification le protège réellement.</p>
+
+<h2>4. Feuille de route vers « terminé »</h2>
+<p class="mu">Cochez au fur et à mesure : la barre mesure l’avancement de <b>cette liste</b>, pas un score de qualité global.</p>
+<div class="card">
+<div class="bar"><i id="pb"></i></div>
+<p id="pt" class="mu" style="margin:6px 0 12px">0 / 0</p>
+
+<h3>Phase 0 – Aujourd’hui (bloquant)</h3>
+<label class="ck"><input type="checkbox"><span>Console Firestore : relever les règles déployées, les comparer aux deux fichiers (K1)</span></label>
+<label class="ck"><input type="checkbox"><span>Créer un fichier de règles unique, partagé par les deux apps (K1)</span></label>
+<label class="ck"><input type="checkbox"><span>Déployer les règles §3 + Admin §3 après tests à l’émulateur (K2, K3, K4)</span></label>
+<label class="ck"><input type="checkbox"><span>Cacher/retirer <code>simulateNewRide</code> en production (H4)</span></label>
+
+<h3 style="margin-top:14px">Phase 1 – Semaine 1 (intégration Admin ↔ Chauffeur)</h3>
+<label class="ck"><input type="checkbox"><span>Appliquer le patch d’inscription : <code>driverCode</code>, <code>driverCodes</code>, <code>hasLicense</code>, <code>checklist</code> (K5)</span></label>
+<label class="ck"><input type="checkbox"><span>Écrans « Dossier refusé » et « Compte suspendu » avec motif (K5)</span></label>
+<label class="ck"><input type="checkbox"><span>Ne monter <code>RideProvider</code> que pour un chauffeur approuvé (K2)</span></label>
+<label class="ck"><input type="checkbox"><span>Inscription : propager les erreurs Firestore, recréer le profil manquant (H1)</span></label>
+<label class="ck"><input type="checkbox"><span>Corriger l’annulation d’une course en cours + message d’erreur (H3)</span></label>
+
+<h3 style="margin-top:14px">Phase 2 – Semaines 2–3 (backend et notifications)</h3>
+<label class="ck"><input type="checkbox"><span>Dossier <code>functions/</code> : push nouvelle course (filtre <code>lastSeenAt</code>, purge des jetons) (H5)</span></label>
+<label class="ck"><input type="checkbox"><span>Une seule stratégie de service worker ; clé VAPID renseignée ; bouton « Activer les alertes » (H6)</span></label>
+<label class="ck"><input type="checkbox"><span>Vérification SMS du numéro (ou validation dispatch) + mot de passe 8 caractères (H2)</span></label>
+<label class="ck"><input type="checkbox"><span>Photo + pièces via Firebase Storage avec règles (M2)</span></label>
+<label class="ck"><input type="checkbox"><span>Fonction de tarification serveur, prix non éditable (K4)</span></label>
+
+<h3 style="margin-top:14px">Phase 3 – Mise en production</h3>
+<label class="ck"><input type="checkbox"><span>Les 12 cas du <code>security_spec.md</code> en tests automatisés, dans la CI (K4, M3)</span></label>
+<label class="ck"><input type="checkbox"><span>App Check + restriction de la clé API (L1)</span></label>
+<label class="ck"><input type="checkbox"><span>Gains : plus de prix par défaut, règle de comptage décidée (M1)</span></label>
+<label class="ck"><input type="checkbox"><span>Nettoyer dépendances, activer <code>strict</code>, renommer le paquet (M3, M4)</span></label>
+<label class="ck"><input type="checkbox"><span>Test réel sur 2 téléphones : inscription → validation Admin → course acceptée app fermée → suspension immédiate</span></label>
+</div>
+
+<h2>5. Critère de « terminé à 100 % »</h2>
+<table><thead><tr><th>Critère</th><th>Preuve attendue</th></tr></thead><tbody>
+<tr><td>Un compte non approuvé ne peut ni lire ni accepter de course</td><td>Tests d’émulateur verts (get, list, update)</td></tr>
+<tr><td>Un chauffeur ne peut modifier ni le prix ni les champs d’approbation</td><td>Tests des cas n°2 et n°7 du « Dirty Dozen »</td></tr>
+<tr><td>Un chauffeur suspendu perd l’accès aux courses immédiatement</td><td>Essai réel : suspension dans l’app Admin, acceptation refusée</td></tr>
+<tr><td>Chaque inscription crée un profil et un code <code>GNG-</code> réservé</td><td>Document <code>users</code> + <code>driverCodes</code> présents pour 100 % des comptes de test</td></tr>
+<tr><td>Alerte nouvelle course app fermée</td><td>Notification reçue sur 1 Android et 1 iPhone (PWA installée)</td></tr>
+<tr><td>Un seul jeu de règles</td><td>Un fichier, un déploiement, mêmes règles dans les deux dépôts</td></tr>
+</tbody></table>
+
+<p class="mu" style="margin-top:32px">Aucune source externe nouvelle dans ce rapport : les constats viennent du code fourni. Le principe « un service worker par portée » est une règle générale des navigateurs (voir le rapport Admin, H4) ; il n’a pas été testé sur votre build. Les comportements iOS sont signalés « à confirmer ».</p>
+</main>
+<script>
+(function(){var b=[].slice.call(document.querySelectorAll('.ck input'));function u(){var d=b.filter(function(x){return x.checked}).length;document.getElementById('pb').style.width=(100*d/b.length)+'%';document.getElementById('pt').textContent=d+' / '+b.length+' tâches terminées'}b.forEach(function(x){x.addEventListener('change',u)});u()})();
+</script>
+</body>
+</html>

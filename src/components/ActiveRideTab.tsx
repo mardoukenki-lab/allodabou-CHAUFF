@@ -34,6 +34,8 @@ export const ActiveRideTab: React.FC<ActiveRideTabProps> = ({ onGoToDemandes }) 
   const [isAdvancing, setIsAdvancing] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [isMarkingPaid, setIsMarkingPaid] = useState(false);
 
@@ -88,23 +90,29 @@ export const ActiveRideTab: React.FC<ActiveRideTabProps> = ({ onGoToDemandes }) 
   // Handle single action advance
   const handleAdvance = async () => {
     setIsAdvancing(true);
+    setActionError(null);
     try {
       await advanceRideStatus(activeRide.id);
+    } catch (err: any) {
+      setActionError("Échec de la mise à jour : " + (err.message || 'Vérifiez votre connexion.'));
     } finally {
       setIsAdvancing(false);
     }
   };
 
-  // Handle cancellation
+  // Handle cancellation (H3: Supports in_progress cancellation by assigned driver)
   const handleConfirmCancel = async () => {
+    setCancelError(null);
     if (!cancelReason.trim()) {
-      alert("Veuillez sélectionner ou indiquer un motif d'annulation.");
+      setCancelError("Veuillez sélectionner ou indiquer un motif d'annulation.");
       return;
     }
     setIsCancelling(true);
     try {
       await cancelRide(activeRide.id, cancelReason.trim());
       setShowCancelModal(false);
+    } catch (err: any) {
+      setCancelError("Impossible d'annuler la course : " + (err.message || 'Erreur réseau ou de permission.'));
     } finally {
       setIsCancelling(false);
     }
@@ -200,6 +208,16 @@ export const ActiveRideTab: React.FC<ActiveRideTabProps> = ({ onGoToDemandes }) 
           })}
         </div>
       </div>
+
+      {/* Action Error Banner */}
+      {actionError && (
+        <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs font-semibold flex items-center justify-between shadow-xs">
+          <span>{actionError}</span>
+          <button onClick={() => setActionError(null)} className="p-1 text-rose-500 hover:text-rose-700">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Client Information Card (REVEALED AFTER ACCEPTANCE) */}
       <div className="bg-white dark:bg-neutral-800 rounded-2xl border-2 border-emerald-500/40 p-4 shadow-md space-y-3">
@@ -461,6 +479,13 @@ export const ActiveRideTab: React.FC<ActiveRideTabProps> = ({ onGoToDemandes }) 
               onChange={(e) => setCancelReason(e.target.value)}
               className="w-full text-xs p-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white"
             />
+
+            {/* Cancel Error Feedback */}
+            {cancelError && (
+              <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs font-semibold leading-relaxed">
+                {cancelError}
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-2 pt-2">
               <button

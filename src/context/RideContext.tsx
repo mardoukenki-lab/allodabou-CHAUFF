@@ -103,9 +103,9 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
           destinationAddress: data.destinationAddress || 'Dabou',
           destinationLat: data.destinationLat,
           destinationLng: data.destinationLng,
-          distanceKm: data.distanceKm || 2.5,
-          durationMin: data.durationMin || 8,
-          priceFcfa: data.priceFcfa || 1000,
+          distanceKm: Number(data.distanceKm) || 0,
+          durationMin: Number(data.durationMin) || 0,
+          priceFcfa: typeof data.priceFcfa === 'number' && data.priceFcfa > 0 ? data.priceFcfa : 0,
           serviceType: data.serviceType || 'vtc',
           vehicleTypeRequested: data.vehicleTypeRequested,
           packageDetails: data.packageDetails,
@@ -183,9 +183,9 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
           destinationAddress: data.destinationAddress,
           destinationLat: data.destinationLat,
           destinationLng: data.destinationLng,
-          distanceKm: data.distanceKm || 3.0,
-          durationMin: data.durationMin || 10,
-          priceFcfa: data.priceFcfa || 1500,
+          distanceKm: Number(data.distanceKm) || 0,
+          durationMin: Number(data.durationMin) || 0,
+          priceFcfa: typeof data.priceFcfa === 'number' && data.priceFcfa > 0 ? data.priceFcfa : 0,
           serviceType: data.serviceType || 'vtc',
           vehicleTypeRequested: data.vehicleTypeRequested,
           packageDetails: data.packageDetails,
@@ -251,7 +251,7 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
           driverId: data.driverId,
           acceptedAt: data.acceptedAt,
           completedAt: data.completedAt,
-          paymentStatus: data.paymentStatus || 'paid',
+          paymentStatus: data.paymentStatus || 'unpaid',
           paymentMethod: data.paymentMethod || 'cash',
           rating: data.rating,
           ratingComment: data.ratingComment,
@@ -276,7 +276,7 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, [currentUser]);
 
-  // Compute Earnings Dashboard stats
+  // Compute Earnings Dashboard stats (Only paid rides contribute to total earnings)
   const earnings = React.useMemo(() => {
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -292,19 +292,20 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const rideDate = ride.completedAt?.toMillis ? ride.completedAt.toMillis() : (ride.createdAt?.toMillis ? ride.createdAt.toMillis() : Date.now());
       const amount = Number(ride.priceFcfa) || 0;
       const km = Number(ride.distanceKm) || 0;
+      const isPaid = ride.paymentStatus === 'paid';
 
       if (rideDate >= startOfDay) {
-        summaryDay.totalEarningsFcfa += amount;
+        if (isPaid) summaryDay.totalEarningsFcfa += amount;
         summaryDay.ridesCount += 1;
         summaryDay.totalDistanceKm += km;
       }
       if (rideDate >= startOfWeek) {
-        summaryWeek.totalEarningsFcfa += amount;
+        if (isPaid) summaryWeek.totalEarningsFcfa += amount;
         summaryWeek.ridesCount += 1;
         summaryWeek.totalDistanceKm += km;
       }
       if (rideDate >= startOfMonth) {
-        summaryMonth.totalEarningsFcfa += amount;
+        if (isPaid) summaryMonth.totalEarningsFcfa += amount;
         summaryMonth.ridesCount += 1;
         summaryMonth.totalDistanceKm += km;
       }
@@ -460,8 +461,12 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // 9. Simulate a new ride submitted in Dabou to test real-time FCM & audio alert
+  // 9. Simulate a new ride submitted in Dabou to test real-time FCM & audio alert (DEV only)
   const simulateNewRide = async (): Promise<void> => {
+    if (!import.meta.env.DEV) {
+      console.warn("La simulation de course est désactivée en environnement de production.");
+      return;
+    }
     try {
       const dabouPickups = [
         'Grand Marché de Dabou',
